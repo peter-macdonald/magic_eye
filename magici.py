@@ -74,7 +74,7 @@ if __name__ == "__main__":
 	#WIDTH = 1000
 	#image = genTestDepthMap(WIDTH,HEIGHT)
 
-	image = loadDepthMap("./depth_maps/depth4.png")
+	image = loadDepthMap("./depth_maps/depth5.jpg")
 	HEIGHT = image.shape[0]
 	WIDTH = image.shape[1]
 	print WIDTH,HEIGHT
