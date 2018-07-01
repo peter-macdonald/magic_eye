@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/bin/python
 
 import numpy as np
 import scipy.misc as spm
@@ -74,7 +74,7 @@ if __name__ == "__main__":
 	#WIDTH = 1000
 	#image = genTestDepthMap(WIDTH,HEIGHT)
 
-	image = loadDepthMap("./depth_maps/depth5.jpg")
+	image = loadDepthMap("./depth_maps/depth1.png")
 	HEIGHT = image.shape[0]
 	WIDTH = image.shape[1]
 	print WIDTH,HEIGHT

@@ -1,0 +1,14 @@
+{
+  "name": "magic_eye",
+  "version": "1.0.0",
+  "description": "Magic eye generating electron app",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron-canvas-to-buffer": "^2.0.0"
+  }
+}

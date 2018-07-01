@@ -1,0 +1,173 @@
+<html>
+
+<head>
+    <title>Magic Eye Generator</title>
+</head>
+
+<body>
+    <div>Magic Eye</div>
+    <canvas id='outputCanvas'>Error: this is the output canvas</canvas>
+    <img id='depthMap'/>
+    <canvas id='patternCanvas'>Error: this is the pattern canvas</canvas>
+    <script>
+        let depthMapSource = '../depth_maps/depth6.png'
+        let patternWidth = 100;
+        let patternHeight = 100;
+
+        function loadDepthMap() {
+            console.log('loading depth map...');
+            return new Promise(resolve => {
+                let img = document.getElementById('depthMap');
+                img.onload = () => resolve();
+                img.src = depthMapSource;
+            });
+        }
+
+        function createPattern() {
+            console.log('creating pattern...');
+            let ctx = document.getElementById('patternCanvas').getContext('2d');
+            ctx.canvas.width = patternWidth;
+            ctx.canvas.height = patternHeight;
+            let patternDataId = ctx.createImageData(patternWidth, patternHeight);
+            let patternData = patternDataId.data;
+            for (let i = 0; i < patternWidth*patternHeight*4; i += 4) {
+                patternData[i] = Math.random() * 255; // r
+                patternData[i+1] = Math.random() * 255; // g
+                patternData[i+2] = Math.random() * 255; // b
+                /*let y = Math.floor(i / patternWidth);
+                let x = i % patternWidth;
+                patternData[i] = x; // r
+                patternData[i+1] = x; // g
+                patternData[i+2] = 255; // b*/
+                patternData[i+3] = 255; // a
+            }
+            ctx.putImageData(patternDataId, 0, 0);
+            return Promise.resolve();
+        }
+
+        function depthMapSize() {
+            let depthMapImage = document.getElementById('depthMap');
+            return {
+                width: depthMapImage.width,
+                height: depthMapImage.height
+            }
+        }
+
+        function renderOutput() {
+            console.log('rendering...');
+            let ctx = document.getElementById('outputCanvas').getContext('2d');
+
+            // setup the size
+            let width = depthMapSize().width;
+            let height = depthMapSize().height;
+            ctx.canvas.width = width;
+            ctx.canvas.height = height;
+            
+            // Generate depth-map array
+            let depthMap = new function(img, maxHeight) {
+                const index = (x, y) => x + y*width;
+                this.data = [];
+                this.get = (x, y) => this.data[index(x, y)];
+
+                ctx.drawImage(img, 0, 0);
+                let dataId = ctx.getImageData(0, 0, width, height);
+                let data = dataId.data;
+                let rgba2depth = (r,g,b,a) => r / 255 * maxHeight;//(r+g+b) / (255*3) * maxHeight;
+                for (let i = 0; i < width*height*4; i += 4) {
+                    this.data.push(rgba2depth(...data.slice(i, i+4)));
+                }
+
+                return this;
+            }(document.getElementById('depthMap'), 30);
+
+            let shiftMap = new function(depthMap) {
+                const index = (x, y) => x + y*width;
+                this.data = Array(width * height).fill(patternWidth);
+                this.get = (x, y) => this.data[index(x, y)];
+
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        this.data[index(x, y)] -= depthMap.get(x, y);
+                    }
+                    /*for (let x = width; x > 0; x--) {
+                        for (let x2 = x; x2 > 0; x2 -= patternWidth) {
+                            this.data[index(x2, y)] -= depthMap.get(x, y);
+                        }
+                    }*/
+                }
+                this.data = this.data.map(e => Math.floor(e));
+
+                return this;
+            }(depthMap);
+            
+            // draw the magic image
+            // TODO: Clean this up
+            let dataId = ctx.createImageData(width, height);
+            let final = new function() {
+                let index = (x, y) => 4*(x + y*width);
+                this.data = dataId.data;
+                this.set = (x, y, p) => {
+                    for(let j = 0; j < 4; j++) {
+                        this.data[index(x, y)+j] = p[j];
+                    }
+                };
+                this.get = (x, y) => this.data.slice(index(x, y), index(x, y)+4);
+                return this;
+            }();
+
+            let pattern = new function() {
+                let index = (x, y) => 4*(x + y*patternWidth);
+                this.data = document.getElementById('patternCanvas').getContext('2d')
+                    .getImageData(0, 0, patternWidth, patternHeight).data;
+                this.get = (x, y) => this.data.slice(index(x, y), index(x, y)+4);
+                return this;
+            }();
+            
+            for (let i = 0; i < width*height; i += 1) { // make base image
+                // TODO: Do this way more efficienty
+                let x = i % width;
+                let y = Math.floor(i / width);
+                
+                let fromPatternX = x % patternWidth;
+                let fromPatternY = y % patternHeight;
+                let pixel = pattern.get(fromPatternX, fromPatternY);
+
+                final.set(x, y, pixel);
+            }
+            //for (let i = 0; i < width*height; i += 1) { // perform the shifts
+            for (let y = 0; y < height; y++) {
+                for (let x = patternWidth; x < width; x++) {
+                    let fromX = (x - shiftMap.get(x, y));
+                    let fromY = y;
+                    let pixel = final.get(fromX, fromY);
+                    final.set(x, y, pixel);
+                }
+            }
+                //let x = i % width;
+                //let y = Math.floor(i / width);
+
+                // TODO: deal with wrapping properly
+                
+                //pixel = Array(4).fill(0);
+                //pixel[0] = shiftMap.get(x, y);
+                //pixel[1] = depthMap.get(x, y);
+                //pixel[2] = fromPatternX*10;
+                //pixel[3] = 255;
+
+                
+            //}
+            ctx.putImageData(dataId, 0, 0);
+            return Promise.resolve();
+        }
+
+        onload = () => {
+            createPattern()
+                .then(() => loadDepthMap())
+                .then(() => renderOutput())
+                .then(() => console.log('done!'));
+        }
+        
+    </script>
+</body>
+
+</html>
